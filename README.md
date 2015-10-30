@@ -5,6 +5,13 @@ This extension uses InfluxDB [Line Protocol](https://influxdb.com/docs/v0.9/writ
 Since Sensu already uses [eventmachine](https://github.com/eventmachine/eventmachine), you just have to ensure that em-http-request gem is present inside Sensu's embedded Ruby :
 * `em-http-request` ruby gem
 
+By default, this extension uses in memory metrics caching : it makes InfluxDB writes batched.
+This cache is flushed every __500 items__ or __6 seconds__ (this values can be changed in conf).
+
+## Caveat
+* SSL/TLS connection to InfluxDB is still broken in Sensu `0.20.6`. We're waiting for a Ruby / EM upgrade in Sensu project :
+    * https://github.com/sensu/sensu/issues/1084
+
 # Usage
 The configuration options are pretty straight forward.
 
@@ -75,9 +82,9 @@ Check definitions can now specify a Sensu check extension to run,
     "database": "stats",
     "host": "localhost",
     "port": "8086",
-    "user": "stats",
+    "username": "stats",
     "password": "stats",
-    "ssl_enable": false,
+    "use_ssl": false,
     "strip_metric": "somevalue",
     "tags": {
       "region": "my-dc-01",
@@ -89,9 +96,9 @@ Check definitions can now specify a Sensu check extension to run,
 
 ### Config attributes
 
-* host, port, user, password and database are pretty straight forward. If `ssl_enable` is set to true, the connection to the influxdb server will be made using https instead of http.
+* `host`, `port`, `username`, `password` and `database` are pretty straight forward. If `use_ssl` is set to true, the connection to the influxdb server will be made using https instead of http.
 
-* tags hash is also pretty straight forward. Just list here in a flat-hash design as many influxdb tags you wish to be added in your measures.
+* `tags` hash is also pretty straight forward. Just list here in a flat-hash design as many influxdb tags you wish to be added in your measures.
 
 * `strip_metric` however might not be. This is used to "clean up" the data sent to influxdb. Normally everything sent to handlers is akin to the `graphite`/`stats` style:
 ```
@@ -108,6 +115,12 @@ Note that :
 * `strip_metric` isn't required.
 * you can cleanup an arbitrary string from your keyname or use `host` as special value to cleanup the sensu event client name from your key.
 
+#### Other attributes
+
+* `time_precision` : global checks time precision (default is `'s'`)
+* `buffer_max_size` : buffer size limit before flush - This is the amount of points in the InfluxDB batch - (default is `500`)
+* `buffer_max_age` : buffer maximum age - Flush will be forced after this amount of time - (default is `6` seconds)
+
 ## Check options
 
 In the check config, an optional `influxdb` section can be added, containing a `database` option and `tags`.
@@ -115,7 +128,7 @@ If specified, this overrides the default `database` option in the handler config
 
 This allows events to be written to different influxdb databases and modify key indexes on a check-by-check basis.
 
-You can also specify the time_precision of your check script in the check config with the `time_precision` attribute.
+You can also specify the time precision of your check script in the check config with the `time_precision` attribute.
 
 ### Example check config
 
