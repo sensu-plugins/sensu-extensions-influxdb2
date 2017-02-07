@@ -15,7 +15,6 @@ module Sensu::Extension
     end
 
     def flush_buffer
-      @flush_timer.cancel
       @buffer.each do |db, tp|
         tp.each do |p, points|
           EventMachine::HttpRequest.new("#{ @influx_conf['protocol'] }://#{ @influx_conf['host'] }:#{ @influx_conf['port'] }/write?db=#{ db }&precision=#{ p }&u=#{ @influx_conf['username'] }&p=#{ @influx_conf['password'] }").post :body => points.join("\n")

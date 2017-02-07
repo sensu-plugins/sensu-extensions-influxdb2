@@ -31,18 +31,19 @@ module Sensu::Extension
     end
 
     def run(event_data)
-      if event_data[:check][:type] == 'metric' then
+      if event_data[:check][:type] != 'check' then
         yield '', 0
+        return
       end
 
       host = event_data[:client][:name].split('.')[0]
       metric = event_data[:check][:name]
       timestamp = event_data[:check][:executed]
       value = if event_data[:check][:status] == 0 then 1 else 0 end
-      output = "sensu.#{host}.checks.#{metric} #{value} #{timestamp}"
+      output = "sensu.#{host}.checks.#{metric} value=#{value} #{timestamp}"
 
       @relay.push(@influx_conf['database'], @influx_conf['time_precision'], output)
-      yield '', 0
+      yield output, 0
     end
 
     def stop
