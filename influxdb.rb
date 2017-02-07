@@ -2,6 +2,7 @@ require 'rubygems' if RUBY_VERSION < '1.9.0'
 require 'em-http-request'
 require 'eventmachine'
 require 'multi_json'
+require_relative 'lib/influx_relay'
 
 module Sensu::Extension
   class InfluxDB < Handler
@@ -24,13 +25,9 @@ module Sensu::Extension
       @influx_conf = parse_settings
       logger.info("InfluxDB extension initialiazed using #{@influx_conf['protocol'] }://#{ @influx_conf['host'] }:#{ @influx_conf['port'] } - Defaults : db=#{@influx_conf['database']} precision=#{@influx_conf['time_precision']}")
 
-      @buffer = {}
-      @flush_timer = EventMachine::PeriodicTimer.new(@influx_conf['buffer_max_age'].to_i) do
-        unless buffer_size == 0
-          logger.debug("InfluxDB cache age > #{@influx_conf['buffer_max_age']} : forcing flush")
-          flush_buffer
-        end
-      end
+      @relay = InfluxRelay.new
+      @relay.init(@influx_conf)
+
       logger.info("InfluxDB write buffer initiliazed : buffer flushed every #{@influx_conf['buffer_max_size']} points OR every #{@influx_conf['buffer_max_age']} seconds) ")
     end
 
@@ -69,11 +66,7 @@ module Sensu::Extension
           key += ",#{tag}=#{val}"
         end
 
-        @buffer[event[:check][:influxdb][:database]] ||= {}
-        @buffer[event[:check][:influxdb][:database]][event[:check][:time_precision]] ||= []
-
-        @buffer[event[:check][:influxdb][:database]][event[:check][:time_precision]].push([key, values, time.to_i].join(' '))
-        flush_buffer if buffer_size >= @influx_conf['buffer_max_size']
+        @relay.push(event[:check][:influxdb][:database], event[:check][:time_precision], [key, values, time.to_i].join(' '))
       end
 
       yield('', 0)
@@ -81,31 +74,11 @@ module Sensu::Extension
 
     def stop
       logger.info('Flushing InfluxDB buffer before exiting')
-      flush_buffer
+      @relay.flush_buffer
       true
     end
 
     private
-
-    def flush_buffer
-      @flush_timer.cancel
-      logger.debug('Flushing InfluxDB buffer')
-      @buffer.each do |db, tp|
-        tp.each do |p, points|
-          logger.debug("Sending #{ points.length } points to #{ db } InfluxDB database with precision=#{ p }")
-
-          EventMachine::HttpRequest.new("#{ @influx_conf['protocol'] }://#{ @influx_conf['host'] }:#{ @influx_conf['port'] }/write?db=#{ db }&precision=#{ p }&u=#{ @influx_conf['username'] }&p=#{ @influx_conf['password'] }").post :body => points.join("\n")
-
-        end
-        logger.debug("Cleaning buffer for db #{ db }")
-        @buffer[db] = {}
-      end
-    end
-
-    def buffer_size
-      sum = @buffer.map { |_db, tp| tp.map { |_p, points| points.length}.inject(:+) }.inject(:+)
-      return sum || 0
-    end
 
     def parse_event(event_data)
       begin
