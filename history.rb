@@ -40,7 +40,7 @@ module Sensu::Extension
       metric = event_data[:check][:name]
       timestamp = event_data[:check][:executed]
       value = if event_data[:check][:status] == 0 then 1 else 0 end
-      output = "sensu.#{host}.checks.#{metric} value=#{value} #{timestamp}"
+      output = "#{@influx_conf['scheme']}.#{host}.checks.#{metric} value=#{value} #{timestamp}"
 
       @relay.push(@influx_conf['database'], @influx_conf['time_precision'], output)
       yield output, 0
@@ -66,6 +66,7 @@ module Sensu::Extension
         settings['buffer_max_size'] ||= 500
         settings['buffer_max_age'] ||= 6 # seconds
         settings['port'] ||= 8086
+        settings['scheme'] ||= 'sensu'
 
       rescue => e
         logger.error("Failed to parse History settings #{e}")
