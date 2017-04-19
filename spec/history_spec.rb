@@ -1,14 +1,14 @@
 require File.join(File.dirname(__FILE__), "helpers")
-require "sensu/extensions/influxdb"
+require "sensu/extensions/history"
 require "socket"
 
-describe "Sensu::Extension::InfluxDB" do
+describe "Sensu::Extension::History" do
   include Helpers
 
   before do
-    @extension = Sensu::Extension::InfluxDB.new
+    @extension = Sensu::Extension::History.new
     @extension.settings = {
-      "influxdb" => {
+      "history" => {
         "database" => "test",
         "host" => "127.0.0.1",
         "port" => 8087,

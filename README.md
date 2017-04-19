@@ -52,7 +52,23 @@ The name of the key ```host``` is grabbed from sensu event client name.
 ## Extension not a handler
 Note that the first push of this was a handler that could be called via `pipe`. This is now an actual extension that's more performant since it's actually in the sensu-server runtime. Additionally it's now using batch submission to InfluxDB by writing all the points for a given series at once.
 
-Just drop the ruby file in `/etc/sensu/extensions` and create a set to wrap this extension into a callable handler. In this example, we created a ```metrics``` handler wrapping a debug output and this Influx extension :
+To [load the extension](https://sensuapp.org/docs/latest/reference/extensions.html), you will need to install the gem into the sensu ruby, and then add the following config file
+```
+{
+  "extensions": {
+    "influxdb": {
+      "gem": "sensu-extensions-influxdb",
+    },
+    "history": {
+      "gem": "sensu-extensions-history",
+    }
+  }
+}
+```
+
+**NOTE**: Even though this gem is called `sensu-extensions-influxdb`, the way sensu loads the extension is by parsing the name of the gem, and loading the library. This is why we have to specify `sensu-extensions-history`, even though that gem doesn't exist.
+
+Create a set to wrap this extension into a callable handler. In this example, we created a ```metrics``` handler wrapping a debug output and this Influx extension :
 
 _/etc/sensu/conf.d/handlers/metrics.json_ :
 ```json

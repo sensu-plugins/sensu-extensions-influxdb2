@@ -2,6 +2,7 @@ require 'rubygems' if RUBY_VERSION < '1.9.0'
 require 'em-http-request'
 require 'eventmachine'
 require 'multi_json'
+require "sensu/extension"
 
 module Sensu::Extension
   class History < Bridge
@@ -31,16 +32,16 @@ module Sensu::Extension
     end
 
     def run(event_data)
-      if event_data[:check][:type] != 'check' then
+      if event_data[:check][:type] != 'standard' && event_data[:check][:type] != 'check' then
         yield '', 0
         return
       end
 
-      host = event_data[:client][:name].split('.')[0]
+      host = event_data[:client][:name]
       metric = event_data[:check][:name]
       timestamp = event_data[:check][:executed]
-      value = if event_data[:check][:status] == 0 then 1 else 0 end
-      output = "#{@influx_conf['scheme']}.#{host}.checks.#{metric} value=#{value} #{timestamp}"
+      value = event_data[:check][:status]
+      output = "#{@influx_conf['scheme']}.checks.#{metric},host=#{host} value=#{value} #{timestamp}"
 
       @relay.push(@influx_conf['database'], @influx_conf['time_precision'], output)
       yield output, 0
@@ -56,8 +57,10 @@ module Sensu::Extension
 
     def parse_settings()
       begin
-        settings = @settings['history']
-
+        settings = @settings['influxdb']
+        if @settings.include?('history')
+          settings.merge!(@settings['history'])
+        end
         # default values
         settings['tags'] ||= {}
         settings['use_ssl'] ||= false

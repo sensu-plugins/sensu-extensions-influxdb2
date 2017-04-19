@@ -2,7 +2,8 @@ require 'rubygems' if RUBY_VERSION < '1.9.0'
 require 'em-http-request'
 require 'eventmachine'
 require 'multi_json'
-require_relative 'lib/influx_relay'
+require "sensu/extension"
+require "sensu/extensions/influxdb/influx_relay"
 
 module Sensu::Extension
   class InfluxDB < Handler
@@ -33,13 +34,15 @@ module Sensu::Extension
 
     def run(event_data)
       event = parse_event(event_data)
-
+      if event[:check][:status] != 0 then
+        yield '', 0
+        return
+      end
       # init event and check data
       body = []
       client = event[:client][:name]
       event[:check][:influxdb][:database] ||= @influx_conf['database']
       event[:check][:time_precision] ||= @influx_conf['time_precision']
-
       event[:check][:output].split(/\n/).each do |line|
         key, value, time = line.split(/\s+/)
         values = "value=#{value.to_f}"
@@ -65,10 +68,8 @@ module Sensu::Extension
         tags.each do |tag, val|
           key += ",#{tag}=#{val}"
         end
-
         @relay.push(event[:check][:influxdb][:database], event[:check][:time_precision], [key, values, time.to_i].join(' '))
       end
-
       yield('', 0)
     end
 
