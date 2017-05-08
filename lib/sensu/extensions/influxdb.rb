@@ -43,6 +43,7 @@ module Sensu::Extension
       client = event[:client][:name]
       event[:check][:influxdb][:database] ||= @influx_conf['database']
       event[:check][:time_precision] ||= @influx_conf['time_precision']
+      event[:check][:influxdb][:strip_metric] ||= @influx_conf['strip_metric']
       event[:check][:output].split(/\n/).each do |line|
         key, value, time = line.split(/\s+/)
         values = "value=#{value.to_f}"
@@ -51,10 +52,10 @@ module Sensu::Extension
           values += ",duration=#{event[:check][:duration].to_f}"
         end
 
-        if @influx_conf['strip_metric'] == 'host'
+        if event[:check][:influxdb][:strip_metric] == 'host'
           key = slice_host(key, client)
-        elsif @influx_conf['strip_metric']
-          key.gsub!(/^.*#{@influx_conf['strip_metric']}\.(.*$)/, '\1')
+        elsif event[:check][:influxdb][:strip_metric]
+          key.gsub!(/^.*#{event[:check][:influxdb][:strip_metric]}\.(.*$)/, '\1')
         end
 
         # Avoid things break down due to comma in key name

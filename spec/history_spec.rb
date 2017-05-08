@@ -8,14 +8,16 @@ describe "Sensu::Extension::History" do
   before do
     @extension = Sensu::Extension::History.new
     @extension.settings = {
-      "history" => {
-        "database" => "test",
-        "host" => "127.0.0.1",
-        "port" => 8087,
-        "strip_metric" => "rpsec_strip",
-        "timeout" => 15,
-        "buffer_max_size" => 1,
-        "buffer_max_age" => 1
+      "influxdb" => {
+        "history" => {
+          "database" => "test",
+          "host" => "127.0.0.1",
+          "port" => 8087,
+          "strip_metric" => "rpsec_strip",
+          "timeout" => 15,
+          "buffer_max_size" => 1,
+          "buffer_max_age" => 1
+        }
       }
     }
   end
