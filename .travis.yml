@@ -1,0 +1,21 @@
+language: ruby
+cache:
+- bundler
+install:
+- bundle install
+rvm:
+- 2.0
+- 2.1
+- 2.2
+- 2.3.0
+- 2.4.0
+notifications:
+  email:
+    recipients:
+    - steve.viola@criticalmedia.com
+    on_success: change
+    on_failure: always
+script:
+- bundle exec rake default
+- gem build sensu-extensions-influxdb.gemspec
+- gem install sensu-extensions-influxdb-*.gem
