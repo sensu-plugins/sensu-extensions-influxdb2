@@ -41,34 +41,57 @@ module Sensu
         end
         # init event and check data
         client = event[:client][:name]
+        field_name = 'value'
+        # This will merge : default conf tags < check embedded tags < sensu client/host tag
+        tags = @influx_conf['tags'].merge(event[:check][:influxdb][:tags]).merge('host' => client)
+        # This will merge : check embedded templaes < default conf templates (check embedded templates will take precedence)
+        templates = event[:check][:influxdb][:templates].merge(@influx_conf['templates'])
         event[:check][:influxdb][:database] ||= @influx_conf['database']
         event[:check][:time_precision] ||= @influx_conf['time_precision']
         event[:check][:influxdb][:strip_metric] ||= @influx_conf['strip_metric']
         event[:check][:output].split(/\n/).each do |line|
           key, value, time = line.split(/\s+/)
-          values = "value=#{value.to_f}"
 
-          if event[:check][:duration]
-            values += ",duration=#{event[:check][:duration].to_f}"
+          # Strip metric name
+          key = strip_key(key, event[:check][:influxdb][:strip_metric], client)
+
+          # Sanitize key name
+          sanitize(key)
+
+          templates.each do |pattern, template|
+            next unless key =~ /#{pattern}/
+            template = template.split('.')
+            key = key.split('.')
+            key_tags = if template.last =~ /\*$/ && !(template.last =~ /field/) && !(template.last =~ /measurement/)
+                         key[0...template.length - 1] << key[template.length - 1...key.length].join('.')
+                       else
+                         key[0...template.length]
+                       end
+
+            field_name = get_name(template, key, 'field') if template.index { |s| s =~ /field/ }
+
+            key = if template.index { |s| s =~ /measurement/ }
+                    get_name(template, key, 'measurement')
+                  else
+                    key[key_tags.length...key.length]
+                  end
+
+            template.each_with_index do |tag, i|
+              unless i >= key_tags.length || tag =~ /field/ || tag =~ /measurement/ || tag == 'void' || tag == 'null' || tag == 'nil'
+                key += ",#{sanitize(tag)}=#{key_tags[i]}"
+              end
+            end
+            break
           end
 
-          if event[:check][:influxdb][:strip_metric] == 'host'
-            key = slice_host(key, client)
-          elsif event[:check][:influxdb][:strip_metric]
-            key.gsub!(/^.*#{event[:check][:influxdb][:strip_metric]}\.(.*$)/, '\1')
-          end
-
-          # Avoid things break down due to comma in key name
-          key.gsub!(',', '\,')
-          key.gsub!(/\s/, '\ ')
-          key.gsub!('"', '\"')
-          key.gsub!('\\') { '\\\\' }
-
-          # This will merge : default conf tags < check embedded tags < sensu client/host tag
-          tags = @influx_conf['tags'].merge(event[:check][:influxdb][:tags]).merge('host' => client)
+          # Append tags to measurement
           tags.each do |tag, val|
             key += ",#{tag}=#{val}"
           end
+
+          values = "#{field_name}=#{value.to_f}"
+          values += ",duration=#{event[:check][:duration].to_f}" if event[:check][:duration]
+
           @relay.push(event[:check][:influxdb][:database], event[:check][:time_precision], [key, values, time.to_i].join(' '))
         end
         yield('', 0)
@@ -90,6 +113,7 @@ module Sensu
         event[:check][:time_precision] ||= nil
         event[:check][:influxdb] ||= {}
         event[:check][:influxdb][:tags] ||= {}
+        event[:check][:influxdb][:templates] ||= {}
         event[:check][:influxdb][:database] ||= nil
         return event
       rescue => e
@@ -101,6 +125,7 @@ module Sensu
 
         # default values
         settings['tags'] ||= {}
+        settings['templates'] ||= {}
         settings['use_ssl'] ||= false
         settings['time_precision'] ||= 's'
         settings['protocol'] = settings['use_ssl'] ? 'https' : 'http'
@@ -112,6 +137,14 @@ module Sensu
         logger.error("Failed to parse InfluxDB settings #{e}")
       end
 
+      def strip_key(key, strip_metric, hostname)
+        if strip_metric == 'host'
+          slice_host(key, hostname)
+        elsif strip_metric
+          gsub(/^.*#{strip_metric}\.(.*$)/, '\1')
+        end
+      end
+
       def slice_host(slice, prefix)
         prefix.chars.zip(slice.chars).each do |char1, char2|
           break if char1 != char2
@@ -119,6 +152,21 @@ module Sensu
         end
         slice.slice!('.') if slice.chars.first == '.'
         slice
+      end
+
+      def get_name(arr1, arr2, pattern)
+        pos = arr1.index { |s| s =~ /#{pattern}/ }
+        if arr1[pos] =~ /\*$/
+          arr2[pos...arr2.length].join('.')
+        elsif arr1[pos] =~ /\d$/
+          arr2[pos...arr1[pos].scan(/\d/).join.to_i + pos].join('.')
+        else
+          arr2[pos]
+        end
+      end
+
+      def sanitize(str)
+        str.gsub(',', '\,').gsub(/\s/, '\ ').gsub('"', '\"').gsub('\\') { '\\\\' }.delete('*').squeeze('.')
       end
 
       def logger

@@ -37,7 +37,7 @@ my-host-01.load_avg.one
 name: my-host-01.load_avg.one
 ------------------
 time                  host        value  duration
-2015-10-14T13:53:22Z  my-host-01  0.34   0.399 
+2015-10-14T13:53:22Z  my-host-01  0.34   0.399
 2015-10-14T13:53:32Z  my-host-01  0.29   0.419
 2015-10-14T13:53:42Z  my-host-01  0.39   0.392
 2015-10-14T13:53:52Z  my-host-01  0.41   0.398
@@ -46,14 +46,14 @@ time                  host        value  duration
 
 Additionally a `duration` value will be present based on the time it took the check to run (this is gleaned from the sensu event data).
 
-The name of the _measurement_ is based on the value of `strip_metric` described below.
+The name of the _measurement_ is based on the value of `strip_metric` and/or a template, as described below.
 The name of the key ```host``` is grabbed from sensu event client name.
 
 ## Extension not a handler
 Note that the first push of this was a handler that could be called via `pipe`. This is now an actual extension that's more performant since it's actually in the sensu-server runtime. Additionally it's now using batch submission to InfluxDB by writing all the points for a given series at once.
 
 To [load the extension](https://sensuapp.org/docs/latest/reference/extensions.html), you will need to install the gem into the sensu ruby, and then add the following config file
-```
+```json
 {
   "extensions": {
     "influxdb": {
@@ -105,6 +105,9 @@ Check definitions can now specify a Sensu check extension to run,
     "tags": {
       "region": "my-dc-01",
       "stage": "prod"
+    },
+    "templates": {
+      ".*\\.cgroup\\..*": "host.path.component"
     }
   }
 }
@@ -114,21 +117,73 @@ Check definitions can now specify a Sensu check extension to run,
 
 * `host`, `port`, `username`, `password` and `database` are pretty straight forward. If `use_ssl` is set to true, the connection to the influxdb server will be made using https instead of http.
 
-* `tags` hash is also pretty straight forward. Just list here in a flat-hash design as many influxdb tags you wish to be added in your measures.
+* `templates` like with the InfluxDB Graphite plugin, you can specify patterns and formats, if the metric name matches the pattern, the template will be applied. Templates can be defined per check, in the check configuration, or globaly in the handler's configuration. Parts of the metric name will be converted into tags, reducing the measurement name in InfluxDB whilst keeping all the information as tags or fields.
+You can specifty multiple templates, if your metric matches more than one the first one will be used.
+For example, if you have a metric named:
+```
+  ip-10-0-1-32.host_stats.load_avg 3
+```
+You can set a template like:
+```json
+  "templates":{
+    ".*\\.host_stats\\..*": "host.type"
+  }
+```
+And as a result the following will be sent to InfluxDB:
+```
+  load_avg,host=ip-10-0-1-32,type=host_stats value=3
+```
+You can also use three special keywords in your templates, `void`, `measurement` and `field` and these can be used with a `*` at the end.
+Example, considereing the following metrics:
+```
+  ip-10-0-1-32.host_stats.load_avg.one 3
+  ip-10-0-1-32.host_stats.load_avg.five 9
+  ip-10-0-1-32.host_stats.load_avg.fifteen 13
+```
+You could create a template like this:
+```json
+  "templates":{
+    ".*\\.host_stats\\..*": "host.measurement.field*"
+  }
+```
+And you would get:
+```
+  host_stats,host=ip-10-0-1-32 load_avg.one=3
+  host_stats,host=ip-10-0-1-32 load_avg.five=9
+  host_stats,host=ip-10-0-1-32 load_avg.fifteen=13
+```
+Or, a template like this:
+```json
+  "templates":{
+    ".*\\.host_stats\\..*": "host.measurement.field.aggregation"
+  }
+```
+Would get you:
+```
+  host_stats,host=ip-10-0-1-32,aggregation=one load_avg=3
+  host_stats,host=ip-10-0-1-32,aggregation=five load_avg=9
+  host_stats,host=ip-10-0-1-32,aggregation=fifteen load_avg=13
+```
+the `void` keyword will make the handler ignore that part of the metric name.
+
+* `tags` hash is also pretty straight forward. Just list here in a flat-hash design as many influxdb tags you wish to be added in your measures. This can also be set both in the handler configuration or as part of the check configuration.
 
 * `strip_metric` however might not be. This is used to "clean up" the data sent to influxdb. Normally everything sent to handlers is akin to the `graphite`/`stats` style:
 ```
   something.host.metrictype.foo.bar
+```
 or
+```
   host.stats.something.foo.bar
 ```
 
 Really the pattern is irrelevant. People have different tastes. Adding much of that data to the column name in InfluxDB is rather silly so `strip_metric` provides you with a chance to add a value that strips off everything up to (and including that value). This allows you to continue sending to graphite or statsd or whatever and still use this handler.
 
-Using the examples above, if you set the `strip_metric` to `host`, then the column in InfluxDB would be called `metrictype.foo.bar` or `stats.something.foo.bar`. If you set the value to `foo` then the column would simply be called `foo`
+Using the examples above, if you set the `strip_metric` to `host`, then the measurement in InfluxDB would be called `metrictype.foo.bar` or `stats.something.foo.bar`. If you set the value to `foo` then the measurement would simply be called `foo`
 
 Note that :
 * `strip_metric` isn't required.
+* `strip_metric` can be set either in the handler configuration or as part of the check configuration, check configuration takes precedence.
 * you can cleanup an arbitrary string from your keyname or use `host` as special value to cleanup the sensu event client name from your key.
 
 #### Other attributes
@@ -140,7 +195,8 @@ Note that :
 ## Check options
 
 In the check config, an optional `influxdb` section can be added, containing a `database` option and `tags`.
-If specified, this overrides the default `database` option in the handler config and adds (or override) influxdb tags.
+As mentioned above you can also specify `strip_metric` and `templates` in the check configuration.
+If specified, this overrides the default `database` and `strip_metric` options in the handler config and adds (or overrides) influxdb tags and templates.
 
 This allows events to be written to different influxdb databases and modify key indexes on a check-by-check basis.
 
@@ -166,6 +222,9 @@ You can also specify the time precision of your check script in the check config
         "tags": {
            "stage": "prod",
            "region": "eu-west-1"
+        },
+        "templates": {
+          "^load_avg\\..*": "measurement.field"
         }
       }
     }
@@ -175,9 +234,16 @@ You can also specify the time precision of your check script in the check config
 
 _Result_ :
 ```
-load_avg.one,stage:prod,region:eu-west-1,host:iprint-test-sa-01.photobox.com value=1.04,duration=0.402  1444816792147
-load_avg.five,stage:prod,region:eu-west-1,host:iprint-test-sa-01.photobox.com value=0.86,duration=0.398 1444816792147
-load_avg.fifteen,stage:prod,region:eu-west-1,host:iprint-test-sa-01.photobox.com value=0.84,duration=0.375 1444816792147
+load_avg,stage:prod,region:eu-west-1,host:iprint-test-sa-01.photobox.com one=1.04,duration=0.402  1444816792147
+load_avg,stage:prod,region:eu-west-1,host:iprint-test-sa-01.photobox.com five=0.86,duration=0.398 1444816792147
+load_avg,stage:prod,region:eu-west-1,host:iprint-test-sa-01.photobox.com fifteen=0.84,duration=0.375 1444816792147
 
  * will be sent to -> http://my-influx09.company.com:8086/db/custom-db/series?time_precision=s&u=sensu&p=sensu
+```
+
+Without the tags and templates you would get:
+```
+load_avg.one,host:iprint-test-sa-01.photobox.com value=1.04,duration=0.402  1444816792147
+load_avg.five,host:iprint-test-sa-01.photobox.com value=0.86,duration=0.398 1444816792147
+load_avg.fifteen,host:iprint-test-sa-01.photobox.com value=0.84,duration=0.375 1444816792147
 ```
