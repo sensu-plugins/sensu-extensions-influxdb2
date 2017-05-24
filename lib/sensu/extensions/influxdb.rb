@@ -46,17 +46,23 @@ module Sensu
         tags = @influx_conf['tags'].merge(event[:check][:influxdb][:tags]).merge('host' => client)
         # This will merge : check embedded templaes < default conf templates (check embedded templates will take precedence)
         templates = event[:check][:influxdb][:templates].merge(@influx_conf['templates'])
+        filters = event[:check][:influxdb][:filters].merge(@influx_conf['filters'])
         event[:check][:influxdb][:database] ||= @influx_conf['database']
         event[:check][:time_precision] ||= @influx_conf['time_precision']
         event[:check][:influxdb][:strip_metric] ||= @influx_conf['strip_metric']
-        event[:check][:output].split(/\n/).each do |line|
+        event[:check][:output].split(/\r\n|\n/).each do |line|
           key, value, time = line.split(/\s+/)
+
+          # Apply filters
+          filters.each do |pattern, replacement|
+            key.gsub!(/#{pattern}/, replacement)
+          end
 
           # Strip metric name
           key = strip_key(key, event[:check][:influxdb][:strip_metric], client)
 
           # Sanitize key name
-          sanitize(key)
+          key = sanitize(key)
 
           templates.each do |pattern, template|
             next unless key =~ /#{pattern}/
@@ -114,6 +120,7 @@ module Sensu
         event[:check][:influxdb] ||= {}
         event[:check][:influxdb][:tags] ||= {}
         event[:check][:influxdb][:templates] ||= {}
+        event[:check][:influxdb][:filters] ||= {}
         event[:check][:influxdb][:database] ||= nil
         return event
       rescue => e
@@ -126,6 +133,7 @@ module Sensu
         # default values
         settings['tags'] ||= {}
         settings['templates'] ||= {}
+        settings['filters'] ||= {}
         settings['use_ssl'] ||= false
         settings['time_precision'] ||= 's'
         settings['protocol'] = settings['use_ssl'] ? 'https' : 'http'
