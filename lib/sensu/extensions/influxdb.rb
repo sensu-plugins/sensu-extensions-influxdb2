@@ -149,7 +149,7 @@ module Sensu
         if strip_metric == 'host'
           slice_host(key, hostname)
         elsif strip_metric
-          gsub(/^.*#{strip_metric}\.(.*$)/, '\1')
+          key.gsub(/^.*#{strip_metric}\.(.*$)/, '\1')
         end
       end
 
