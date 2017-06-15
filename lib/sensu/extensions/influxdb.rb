@@ -53,8 +53,10 @@ module Sensu
         data['strip_metric'] = event[:check][:influxdb][:strip_metric]
         data['duration'] = event[:check][:duration]
         event[:check][:output].split(/\r\n|\n/).each do |line|
-          data['line'] = line
-          line = parse_line(data)
+          unless @influx_conf['proxy_mode'] || event[:check][:influxdb][:proxy_mode]
+            data['line'] = line
+            line = parse_line(data)
+          end
           @relay.push(event[:check][:influxdb][:database], event[:check][:time_precision], line)
         end
         yield('', 0)
@@ -79,6 +81,7 @@ module Sensu
         event[:check][:influxdb][:templates] ||= {}
         event[:check][:influxdb][:filters] ||= {}
         event[:check][:influxdb][:database] ||= nil
+        event[:check][:influxdb][:proxy_mode] ||= false
         return event
       rescue => e
         logger.error("Failed to parse event data: #{e}")
@@ -93,6 +96,7 @@ module Sensu
         settings['filters'] ||= {}
         settings['use_ssl'] ||= false
         settings['use_basic_auth'] ||= false
+        settings['proxy_mode'] ||= false
         settings['time_precision'] ||= 's'
         settings['protocol'] = settings['use_ssl'] ? 'https' : 'http'
         settings['buffer_max_size'] ||= 500
