@@ -39,66 +39,23 @@ module Sensu
           yield '', 0
           return
         end
+        data = {}
         # init event and check data
-        client = event[:client][:name]
-        field_name = 'value'
+        data['client'] = event[:client][:name]
         # This will merge : default conf tags < check embedded tags < sensu client/host tag
-        tags = @influx_conf['tags'].merge(event[:check][:influxdb][:tags]).merge('host' => client)
+        data['tags'] = @influx_conf['tags'].merge(event[:check][:influxdb][:tags]).merge('host' => data['client'])
         # This will merge : check embedded templaes < default conf templates (check embedded templates will take precedence)
-        templates = event[:check][:influxdb][:templates].merge(@influx_conf['templates'])
-        filters = event[:check][:influxdb][:filters].merge(@influx_conf['filters'])
+        data['templates'] = event[:check][:influxdb][:templates].merge(@influx_conf['templates'])
+        data['filters'] = event[:check][:influxdb][:filters].merge(@influx_conf['filters'])
         event[:check][:influxdb][:database] ||= @influx_conf['database']
         event[:check][:time_precision] ||= @influx_conf['time_precision']
         event[:check][:influxdb][:strip_metric] ||= @influx_conf['strip_metric']
+        data['strip_metric'] = event[:check][:influxdb][:strip_metric]
+        data['duration'] = event[:check][:duration]
         event[:check][:output].split(/\r\n|\n/).each do |line|
-          key, value, time = line.split(/\s+/)
-
-          # Apply filters
-          filters.each do |pattern, replacement|
-            key.gsub!(/#{pattern}/, replacement)
-          end
-
-          # Strip metric name
-          key = strip_key(key, event[:check][:influxdb][:strip_metric], client)
-
-          # Sanitize key name
-          key = sanitize(key)
-
-          templates.each do |pattern, template|
-            next unless key =~ /#{pattern}/
-            template = template.split('.')
-            key = key.split('.')
-            key_tags = if template.last =~ /\*$/ && !(template.last =~ /field/) && !(template.last =~ /measurement/)
-                         key[0...template.length - 1] << key[template.length - 1...key.length].join('.')
-                       else
-                         key[0...template.length]
-                       end
-
-            field_name = get_name(template, key, 'field') if template.index { |s| s =~ /field/ }
-
-            key = if template.index { |s| s =~ /measurement/ }
-                    get_name(template, key, 'measurement')
-                  else
-                    key[key_tags.length...key.length]
-                  end
-
-            template.each_with_index do |tag, i|
-              unless i >= key_tags.length || tag =~ /field/ || tag =~ /measurement/ || tag == 'void' || tag == 'null' || tag == 'nil'
-                key += ",#{sanitize(tag)}=#{key_tags[i]}"
-              end
-            end
-            break
-          end
-
-          # Append tags to measurement
-          tags.each do |tag, val|
-            key += ",#{tag}=#{val}"
-          end
-
-          values = "#{field_name}=#{value.to_f}"
-          values += ",duration=#{event[:check][:duration].to_f}" if event[:check][:duration]
-
-          @relay.push(event[:check][:influxdb][:database], event[:check][:time_precision], [key, values, time.to_i].join(' '))
+          data['line'] = line
+          line = parse_line(data)
+          @relay.push(event[:check][:influxdb][:database], event[:check][:time_precision], line)
         end
         yield('', 0)
       end
@@ -135,6 +92,7 @@ module Sensu
         settings['templates'] ||= {}
         settings['filters'] ||= {}
         settings['use_ssl'] ||= false
+        settings['use_basic_auth'] ||= false
         settings['time_precision'] ||= 's'
         settings['protocol'] = settings['use_ssl'] ? 'https' : 'http'
         settings['buffer_max_size'] ||= 500
@@ -175,6 +133,57 @@ module Sensu
 
       def sanitize(str)
         str.gsub(',', '\,').gsub(/\s/, '\ ').gsub('"', '\"').gsub('\\') { '\\\\' }.delete('*').squeeze('.')
+      end
+
+      def parse_line(event)
+        field_name = 'value'
+        key, value, time = event[:line].split(/\s+/)
+
+        # Apply filters
+        event[:filters].each do |pattern, replacement|
+          key.gsub!(/#{pattern}/, replacement)
+        end
+
+        # Strip metric name
+        key = strip_key(key, event[:strip_metric], event[:client])
+
+        # Sanitize key name
+        key = sanitize(key)
+
+        event[:templates].each do |pattern, template|
+          next unless key =~ /#{pattern}/
+          template = template.split('.')
+          key = key.split('.')
+          key_tags = if template.last =~ /\*$/ && !(template.last =~ /field/) && !(template.last =~ /measurement/)
+                       key[0...template.length - 1] << key[template.length - 1...key.length].join('.')
+                     else
+                       key[0...template.length]
+                     end
+
+          field_name = get_name(template, key, 'field') if template.index { |s| s =~ /field/ }
+
+          key = if template.index { |s| s =~ /measurement/ }
+                  get_name(template, key, 'measurement')
+                else
+                  key[key_tags.length...key.length]
+                end
+
+          template.each_with_index do |tag, i|
+            unless i >= key_tags.length || tag =~ /field/ || tag =~ /measurement/ || tag == 'void' || tag == 'null' || tag == 'nil'
+              key += ",#{sanitize(tag)}=#{key_tags[i]}"
+            end
+          end
+          break
+        end
+
+        # Append tags to measurement
+        event[:tags].each do |tag, val|
+          key += ",#{tag}=#{val}"
+        end
+
+        values = "#{field_name}=#{value.to_f}"
+        values += ",duration=#{event[:duration].to_f}" if event[:duration]
+        [key, values, time.to_i].join(' ')
       end
 
       def logger

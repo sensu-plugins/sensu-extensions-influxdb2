@@ -19,7 +19,14 @@ module Sensu
         logger.info('Flushing Buffer')
         @buffer.each do |db, tp|
           tp.each do |p, points|
-            EventMachine::HttpRequest.new("#{@influx_conf['protocol']}://#{@influx_conf['host']}:#{@influx_conf['port']}/write?db=#{db}&precision=#{p}&u=#{@influx_conf['username']}&p=#{@influx_conf['password']}").post body: points.join("\n")
+            if @influx_conf['use_basic_auth']
+              EventMachine::HttpRequest.new("#{@influx_conf['protocol']}://#{@influx_conf['host']}:#{@influx_conf['port']}/write?db=#{db}&precision=#{p}&u=#{@influx_conf['username']}&p=#{@influx_conf['password']}").post(
+                body: points.join("\n"),
+                head: { 'authorization' => [@influx_conf['basic_user'], @influx_conf['basic_pass']] }
+              )
+            else
+              EventMachine::HttpRequest.new("#{@influx_conf['protocol']}://#{@influx_conf['host']}:#{@influx_conf['port']}/write?db=#{db}&precision=#{p}&u=#{@influx_conf['username']}&p=#{@influx_conf['password']}").post body: points.join("\n")
+            end
           end
           @buffer[db] = {}
         end
