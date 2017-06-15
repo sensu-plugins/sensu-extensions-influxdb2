@@ -117,6 +117,10 @@ Check definitions can now specify a Sensu check extension to run,
 
 * `host`, `port`, `username`, `password` and `database` are pretty straight forward. If `use_ssl` is set to true, the connection to the influxdb server will be made using https instead of http.
 
+* `use_basic_auth` if your InfluxDB is behind a proxy that requires authentication you can set this to `true`, in that case you also have to define `basic_user` and `basic_pass`.
+
+* `filters` allow's you to "find and replace" words/patterns in the key, it's a Hash where the key is a regex pattern and the value is a string that should replace it. (these are passed directly to the gsub method). Filters are applyed before any other transformations like templates.
+
 * `templates` like with the InfluxDB Graphite plugin, you can specify patterns and formats, if the metric name matches the pattern, the template will be applied. Templates can be defined per check, in the check configuration, or globaly in the handler's configuration. Parts of the metric name will be converted into tags, reducing the measurement name in InfluxDB whilst keeping all the information as tags or fields.
 You can specifty multiple templates, if your metric matches more than one the first one will be used.
 For example, if you have a metric named:
@@ -191,11 +195,13 @@ Note that :
 * `time_precision` : global checks time precision (default is `'s'`)
 * `buffer_max_size` : buffer size limit before flush - This is the amount of points in the InfluxDB batch - (default is `500`)
 * `buffer_max_age` : buffer maximum age - Flush will be forced after this amount of time - (default is `6` seconds)
+* `Proxy mode` : If the extension is configured to be in proxy mode, it will skip the transformation step and assume that the data is valid [line protocol](https://docs.influxdata.com/influxdb/latest/write_protocols/line_protocol_reference). It will not take into account any tags defined in the sensu-configuration.
 
 ## Check options
 
 In the check config, an optional `influxdb` section can be added, containing a `database` option and `tags`.
-As mentioned above you can also specify `strip_metric` and `templates` in the check configuration.
+You can also set `proxy_mode` in this section on the checks to override the default configuration set on the handler. This way checks that use the InfluxDB line protocol can coexsist with checks that use the Graphite format and use the same handler.
+As mentioned above you can also specify `strip_metric`, `templates` and `filters`,  in the check configuration.
 If specified, this overrides the default `database` and `strip_metric` options in the handler config and adds (or overrides) influxdb tags and templates.
 
 This allows events to be written to different influxdb databases and modify key indexes on a check-by-check basis.

@@ -36,7 +36,8 @@ module Sensu
       def run(event_data)
         event = parse_event(event_data)
         if event[:check][:status] != 0
-          yield '', 0
+          logger.error("Check status is not OK!")
+          yield 'error', event[:check][:status]
           return
         end
         data = {}
@@ -59,7 +60,7 @@ module Sensu
           end
           @relay.push(event[:check][:influxdb][:database], event[:check][:time_precision], line)
         end
-        yield('', 0)
+        yield 'ok', 0
       end
 
       def stop
