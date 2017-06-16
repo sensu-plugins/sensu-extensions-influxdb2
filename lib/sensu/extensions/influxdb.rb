@@ -36,26 +36,26 @@ module Sensu
       def run(event_data)
         event = parse_event(event_data)
         if event[:check][:status] != 0
-          logger.error("Check status is not OK!")
+          logger.error('Check status is not OK!')
           yield 'error', event[:check][:status]
           return
         end
         data = {}
         # init event and check data
-        data['client'] = event[:client][:name]
+        data[:client] = event[:client][:name]
         # This will merge : default conf tags < check embedded tags < sensu client/host tag
-        data['tags'] = @influx_conf['tags'].merge(event[:check][:influxdb][:tags]).merge('host' => data['client'])
+        data[:tags] = @influx_conf['tags'].merge(event[:check][:influxdb][:tags]).merge('host' => data[:client])
         # This will merge : check embedded templaes < default conf templates (check embedded templates will take precedence)
-        data['templates'] = event[:check][:influxdb][:templates].merge(@influx_conf['templates'])
-        data['filters'] = event[:check][:influxdb][:filters].merge(@influx_conf['filters'])
+        data[:templates] = event[:check][:influxdb][:templates].merge(@influx_conf['templates'])
+        data[:filters] = event[:check][:influxdb][:filters].merge(@influx_conf['filters'])
         event[:check][:influxdb][:database] ||= @influx_conf['database']
         event[:check][:time_precision] ||= @influx_conf['time_precision']
         event[:check][:influxdb][:strip_metric] ||= @influx_conf['strip_metric']
-        data['strip_metric'] = event[:check][:influxdb][:strip_metric]
-        data['duration'] = event[:check][:duration]
+        data[:strip_metric] = event[:check][:influxdb][:strip_metric]
+        data[:duration] = event[:check][:duration]
         event[:check][:output].split(/\r\n|\n/).each do |line|
           unless @influx_conf['proxy_mode'] || event[:check][:influxdb][:proxy_mode]
-            data['line'] = line
+            data[:line] = line
             line = parse_line(data)
           end
           @relay.push(event[:check][:influxdb][:database], event[:check][:time_precision], line)
