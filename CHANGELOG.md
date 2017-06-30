@@ -3,11 +3,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 This CHANGELOG follows the format listed at [Keep A Changelog](http://keepachangelog.com/)
 
-### [Unreleased]
-- Add proxy_mode
-- Add basic auth authentication option.
-- Add filters
-- Add measurement templating mechanism
+## [Unreleased]
+### Added
+- Proxy_mode
+- Basic auth authentication option.
+- Filters
+- Measurement templating mechanism
 
 ### Fixed
 - strip_key was not working
