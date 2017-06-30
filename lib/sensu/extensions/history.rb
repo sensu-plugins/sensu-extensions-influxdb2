@@ -25,7 +25,7 @@ module Sensu
 
       def post_init
         @influx_conf = parse_settings
-        logger.info("InfluxDB history extension initialiazed using #{@influx_conf['protocol']}://#{@influx_conf['host']}:#{@influx_conf['port']} - Defaults : db=#{@influx_conf['database']} precision=#{@influx_conf['time_precision']}")
+        logger.info("InfluxDB history extension initialiazed using #{@influx_conf['base_url']} - Defaults : db=#{@influx_conf['database']} precision=#{@influx_conf['time_precision']}")
 
         @relay = InfluxRelay.new
         @relay.init(@influx_conf)
@@ -71,6 +71,7 @@ module Sensu
         settings['buffer_max_age'] ||= 6 # seconds
         settings['port'] ||= 8086
         settings['scheme'] ||= 'sensu'
+        settings['base_url'] = "#{settings['protocol']}://#{settings['host']}:#{settings['port']}"
         return settings
       rescue => e
         logger.error("Failed to parse History settings #{e}")

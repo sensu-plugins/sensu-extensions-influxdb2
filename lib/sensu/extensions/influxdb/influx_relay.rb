@@ -19,7 +19,39 @@ module Sensu
         logger.info('Flushing Buffer')
         @buffer.each do |db, tp|
           tp.each do |p, points|
-            EventMachine::HttpRequest.new("#{@influx_conf['protocol']}://#{@influx_conf['host']}:#{@influx_conf['port']}/write?db=#{db}&precision=#{p}&u=#{@influx_conf['username']}&p=#{@influx_conf['password']}").post body: points.join("\n")
+            influxdb = EventMachine::HttpRequest.new("#{@influx_conf['base_url']}/write")
+            post_data = {}
+            post_data[:query] = { 'db' => db, 'precision' => p, 'u' => @influx_conf['username'], 'p' => @influx_conf['password'] }
+            post_data[:body] = points.join("\n")
+            if @influx_conf['use_basic_auth']
+              post_data[:head] = { 'authorization' => [@influx_conf['basic_user'], @influx_conf['basic_pass']] }
+            end
+            result = influxdb.post(post_data)
+            next if @influx_conf.key?(db) # this is to avoid the performance impact of checking the response everytime
+            result.callback do
+              if result.response =~ /.*error.*/
+                logger.error(result.response)
+                if result.response =~ /.*database not found.*/
+                  post_data = {}
+                  post_data[:body] = ''
+                  post_data[:query] = {
+                    'db' => db,
+                    'precision' => p,
+                    'u' => @influx_conf['username'],
+                    'p' => @influx_conf['password'],
+                    'q' => "create database #{db}"
+                  }
+                  if @influx_conf['use_basic_auth']
+                    post_data[:head] = { 'authorization' => [@influx_conf['basic_user'], @influx_conf['basic_pass']] }
+                  end
+                  EventMachine::HttpRequest.new("#{@influx_conf['base_url']}/query").post(post_data)
+                  @influx_conf[db] = true
+                end
+              else
+                logger.debug("Written: #{post_data[:body]}")
+                @influx_conf[db] = true
+              end
+            end
           end
           @buffer[db] = {}
         end

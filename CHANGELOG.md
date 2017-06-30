@@ -4,7 +4,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 This CHANGELOG follows the format listed at [Keep A Changelog](http://keepachangelog.com/)
 
 ## [Unreleased]
-- Add measurement templating mechanism
+### Added
+- Proxy_mode
+- Basic auth authentication option.
+- Filters
+- Measurement templating mechanism
+
+### Fixed
+- strip_key was not working
 
 ## 0.0.2 - 2017-05-18
 ### Added

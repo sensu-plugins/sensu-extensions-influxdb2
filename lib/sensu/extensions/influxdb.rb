@@ -25,7 +25,7 @@ module Sensu
 
       def post_init
         @influx_conf = parse_settings
-        logger.info("InfluxDB extension initialiazed using #{@influx_conf['protocol']}://#{@influx_conf['host']}:#{@influx_conf['port']} - Defaults : db=#{@influx_conf['database']} precision=#{@influx_conf['time_precision']}")
+        logger.info("InfluxDB extension initialiazed using #{@influx_conf['base_url']} - Defaults : db=#{@influx_conf['database']} precision=#{@influx_conf['time_precision']}")
 
         @relay = InfluxRelay.new
         @relay.init(@influx_conf)
@@ -36,65 +36,31 @@ module Sensu
       def run(event_data)
         event = parse_event(event_data)
         if event[:check][:status] != 0
-          yield '', 0
+          logger.error('Check status is not OK!')
+          yield 'error', event[:check][:status]
           return
         end
+        data = {}
         # init event and check data
-        client = event[:client][:name]
-        field_name = 'value'
+        data[:client] = event[:client][:name]
         # This will merge : default conf tags < check embedded tags < sensu client/host tag
-        tags = @influx_conf['tags'].merge(event[:check][:influxdb][:tags]).merge('host' => client)
+        data[:tags] = @influx_conf['tags'].merge(event[:check][:influxdb][:tags]).merge('host' => data[:client])
         # This will merge : check embedded templaes < default conf templates (check embedded templates will take precedence)
-        templates = event[:check][:influxdb][:templates].merge(@influx_conf['templates'])
+        data[:templates] = event[:check][:influxdb][:templates].merge(@influx_conf['templates'])
+        data[:filters] = event[:check][:influxdb][:filters].merge(@influx_conf['filters'])
         event[:check][:influxdb][:database] ||= @influx_conf['database']
         event[:check][:time_precision] ||= @influx_conf['time_precision']
         event[:check][:influxdb][:strip_metric] ||= @influx_conf['strip_metric']
-        event[:check][:output].split(/\n/).each do |line|
-          key, value, time = line.split(/\s+/)
-
-          # Strip metric name
-          key = strip_key(key, event[:check][:influxdb][:strip_metric], client)
-
-          # Sanitize key name
-          sanitize(key)
-
-          templates.each do |pattern, template|
-            next unless key =~ /#{pattern}/
-            template = template.split('.')
-            key = key.split('.')
-            key_tags = if template.last =~ /\*$/ && !(template.last =~ /field/) && !(template.last =~ /measurement/)
-                         key[0...template.length - 1] << key[template.length - 1...key.length].join('.')
-                       else
-                         key[0...template.length]
-                       end
-
-            field_name = get_name(template, key, 'field') if template.index { |s| s =~ /field/ }
-
-            key = if template.index { |s| s =~ /measurement/ }
-                    get_name(template, key, 'measurement')
-                  else
-                    key[key_tags.length...key.length]
-                  end
-
-            template.each_with_index do |tag, i|
-              unless i >= key_tags.length || tag =~ /field/ || tag =~ /measurement/ || tag == 'void' || tag == 'null' || tag == 'nil'
-                key += ",#{sanitize(tag)}=#{key_tags[i]}"
-              end
-            end
-            break
+        data[:strip_metric] = event[:check][:influxdb][:strip_metric]
+        data[:duration] = event[:check][:duration]
+        event[:check][:output].split(/\r\n|\n/).each do |line|
+          unless @influx_conf['proxy_mode'] || event[:check][:influxdb][:proxy_mode]
+            data[:line] = line
+            line = parse_line(data)
           end
-
-          # Append tags to measurement
-          tags.each do |tag, val|
-            key += ",#{tag}=#{val}"
-          end
-
-          values = "#{field_name}=#{value.to_f}"
-          values += ",duration=#{event[:check][:duration].to_f}" if event[:check][:duration]
-
-          @relay.push(event[:check][:influxdb][:database], event[:check][:time_precision], [key, values, time.to_i].join(' '))
+          @relay.push(event[:check][:influxdb][:database], event[:check][:time_precision], line)
         end
-        yield('', 0)
+        yield 'ok', 0
       end
 
       def stop
@@ -114,7 +80,9 @@ module Sensu
         event[:check][:influxdb] ||= {}
         event[:check][:influxdb][:tags] ||= {}
         event[:check][:influxdb][:templates] ||= {}
+        event[:check][:influxdb][:filters] ||= {}
         event[:check][:influxdb][:database] ||= nil
+        event[:check][:influxdb][:proxy_mode] ||= false
         return event
       rescue => e
         logger.error("Failed to parse event data: #{e}")
@@ -126,12 +94,16 @@ module Sensu
         # default values
         settings['tags'] ||= {}
         settings['templates'] ||= {}
+        settings['filters'] ||= {}
         settings['use_ssl'] ||= false
+        settings['use_basic_auth'] ||= false
+        settings['proxy_mode'] ||= false
         settings['time_precision'] ||= 's'
         settings['protocol'] = settings['use_ssl'] ? 'https' : 'http'
         settings['buffer_max_size'] ||= 500
         settings['buffer_max_age'] ||= 6 # seconds
         settings['port'] ||= 8086
+        settings['base_url'] = "#{settings['protocol']}://#{settings['host']}:#{settings['port']}"
         return settings
       rescue => e
         logger.error("Failed to parse InfluxDB settings #{e}")
@@ -141,7 +113,7 @@ module Sensu
         if strip_metric == 'host'
           slice_host(key, hostname)
         elsif strip_metric
-          gsub(/^.*#{strip_metric}\.(.*$)/, '\1')
+          key.gsub(/^.*#{strip_metric}\.(.*$)/, '\1')
         end
       end
 
@@ -167,6 +139,57 @@ module Sensu
 
       def sanitize(str)
         str.gsub(',', '\,').gsub(/\s/, '\ ').gsub('"', '\"').gsub('\\') { '\\\\' }.delete('*').squeeze('.')
+      end
+
+      def parse_line(event)
+        field_name = 'value'
+        key, value, time = event[:line].split(/\s+/)
+
+        # Apply filters
+        event[:filters].each do |pattern, replacement|
+          key.gsub!(/#{pattern}/, replacement)
+        end
+
+        # Strip metric name
+        key = strip_key(key, event[:strip_metric], event[:client])
+
+        # Sanitize key name
+        key = sanitize(key)
+
+        event[:templates].each do |pattern, template|
+          next unless key =~ /#{pattern}/
+          template = template.split('.')
+          key = key.split('.')
+          key_tags = if template.last =~ /\*$/ && !(template.last =~ /field/) && !(template.last =~ /measurement/)
+                       key[0...template.length - 1] << key[template.length - 1...key.length].join('.')
+                     else
+                       key[0...template.length]
+                     end
+
+          field_name = get_name(template, key, 'field') if template.index { |s| s =~ /field/ }
+
+          key = if template.index { |s| s =~ /measurement/ }
+                  get_name(template, key, 'measurement')
+                else
+                  key[key_tags.length...key.length]
+                end
+
+          template.each_with_index do |tag, i|
+            unless i >= key_tags.length || tag =~ /field/ || tag =~ /measurement/ || tag == 'void' || tag == 'null' || tag == 'nil'
+              key += ",#{sanitize(tag)}=#{key_tags[i]}"
+            end
+          end
+          break
+        end
+
+        # Append tags to measurement
+        event[:tags].each do |tag, val|
+          key += ",#{tag}=#{val}"
+        end
+
+        values = "#{field_name}=#{value.to_f}"
+        values += ",duration=#{event[:duration].to_f}" if event[:duration]
+        [key, values, time.to_i].join(' ')
       end
 
       def logger
