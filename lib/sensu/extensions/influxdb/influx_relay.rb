@@ -35,7 +35,8 @@ module Sensu
                   post_data = {}
                   post_data[:body] = ''
                   post_data[:query] = {
-                    'db' => db, 'precision' => p,
+                    'db' => db,
+                    'precision' => p,
                     'u' => @influx_conf['username'],
                     'p' => @influx_conf['password'],
                     'q' => "create database #{db}"
