@@ -9,6 +9,7 @@ This CHANGELOG follows the format listed at [Keep A Changelog](http://keepachang
 - Basic auth authentication option.
 - Filters
 - Measurement templating mechanism
+- Append check and client tags to metrics
 
 ### Fixed
 - strip_key was not working
