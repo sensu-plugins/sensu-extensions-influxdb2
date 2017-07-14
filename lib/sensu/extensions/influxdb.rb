@@ -188,7 +188,7 @@ module Sensu
         # Append tags to measurement
         event[:tags].each do |tag, val|
           next if val.to_s.empty? # skips tags without values
-          key += ",#{tag}=#{val}"
+          key += ",#{sanitize(tag)}=#{sanitize(val)}"
         end
 
         values = "#{field_name}=#{value.to_f}"
