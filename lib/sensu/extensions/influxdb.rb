@@ -47,7 +47,7 @@ module Sensu
         data[:tags] = @influx_conf['tags'].merge(event[:check][:influxdb][:tags]).merge('host' => data[:client])
         client_tags = event[:client][:tags] || {}
         check_tags = event[:check][:tags] || {}
-        data[:tags] = data[:tags].merge(client_tags.merge(check_tags))
+        data[:tags].merge!(client_tags.merge(check_tags))
         # This will merge : check embedded templaes < default conf templates (check embedded templates will take precedence)
         data[:templates] = event[:check][:influxdb][:templates].merge(@influx_conf['templates'])
         data[:filters] = event[:check][:influxdb][:filters].merge(@influx_conf['filters'])
@@ -159,6 +159,7 @@ module Sensu
         # Sanitize key name
         key = sanitize(key)
 
+        tags = {}.merge(event[:tags])
         event[:templates].each do |pattern, template|
           next unless key =~ /#{pattern}/
           template = template.split('.')
@@ -179,14 +180,14 @@ module Sensu
 
           template.each_with_index do |tag, i|
             unless i >= key_tags.length || tag =~ /field/ || tag =~ /measurement/ || tag == 'void' || tag == 'null' || tag == 'nil'
-              event[:tags].merge!(sanitize(tag) => key_tags[i])
+              tags.merge!(sanitize(tag) => key_tags[i])
             end
           end
           break
         end
 
         # Append tags to measurement
-        event[:tags].each do |tag, val|
+        tags.each do |tag, val|
           next if val.to_s.empty? # skips tags without values
           key += ",#{sanitize(tag.to_s)}=#{sanitize(val.to_s)}"
         end
