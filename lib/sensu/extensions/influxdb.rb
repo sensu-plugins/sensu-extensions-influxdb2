@@ -179,7 +179,7 @@ module Sensu
 
           template.each_with_index do |tag, i|
             unless i >= key_tags.length || tag =~ /field/ || tag =~ /measurement/ || tag == 'void' || tag == 'null' || tag == 'nil'
-              key += ",#{sanitize(tag)}=#{key_tags[i]}"
+              event[:tags].merge!({sanitize(tag) => key_tags[i]})
             end
           end
           break
