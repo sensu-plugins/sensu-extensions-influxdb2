@@ -101,6 +101,7 @@ module Sensu
         settings['use_ssl'] ||= false
         settings['use_basic_auth'] ||= false
         settings['proxy_mode'] ||= false
+        settings['debug_relay'] ||= false
         settings['time_precision'] ||= 's'
         settings['protocol'] = settings['use_ssl'] ? 'https' : 'http'
         settings['buffer_max_size'] ||= 500

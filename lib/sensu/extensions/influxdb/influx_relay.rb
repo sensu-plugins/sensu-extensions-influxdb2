@@ -27,10 +27,10 @@ module Sensu
               post_data[:head] = { 'authorization' => [@influx_conf['basic_user'], @influx_conf['basic_pass']] }
             end
             result = influxdb.post(post_data)
-            next if @influx_conf.key?(db) # this is to avoid the performance impact of checking the response everytime
+            next if @influx_conf.key?(db) && @influx_conf['debug_relay'] == false # this is to avoid the performance impact of checking the response everytime
             result.callback do
               if result.response =~ /.*error.*/
-                logger.error(result.response)
+                logger.error("InfluxDB response: #{result.response}")
                 if result.response =~ /.*database not found.*/
                   post_data = {}
                   post_data[:body] = ''
