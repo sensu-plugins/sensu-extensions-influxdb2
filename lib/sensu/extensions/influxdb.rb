@@ -98,6 +98,7 @@ module Sensu
         settings['tags'] ||= {}
         settings['templates'] ||= {}
         settings['filters'] ||= {}
+        settings['strip_metric'] ||= nil
         settings['use_ssl'] ||= false
         settings['use_basic_auth'] ||= false
         settings['proxy_mode'] ||= false
@@ -155,7 +156,7 @@ module Sensu
         end
 
         # Strip metric name
-        key = strip_key(key, event[:strip_metric], event[:client])
+        key = strip_key(key, event[:strip_metric], event[:client]) unless event[:strip_metric].nil?
 
         # Sanitize key name
         key = sanitize(key)
