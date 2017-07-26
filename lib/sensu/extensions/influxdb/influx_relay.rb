@@ -22,7 +22,7 @@ module Sensu
             influxdb = EventMachine::HttpRequest.new("#{@influx_conf['base_url']}/write")
             post_data = {}
             post_data[:query] = { 'db' => db, 'precision' => p, 'u' => @influx_conf['username'], 'p' => @influx_conf['password'] }
-            post_data[:body] = points.join("\n")
+            post_data[:body] = points.join(" \n")
             if @influx_conf['use_basic_auth']
               post_data[:head] = { 'authorization' => [@influx_conf['basic_user'], @influx_conf['basic_pass']] }
             end
