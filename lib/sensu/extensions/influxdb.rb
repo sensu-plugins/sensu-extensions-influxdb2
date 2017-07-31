@@ -115,6 +115,7 @@ module Sensu
       end
 
       def strip_key(key, strip_metric, hostname)
+        return key if strip_metric.to_s.empty?
         if strip_metric == 'host'
           slice_host(key, hostname)
         elsif strip_metric
