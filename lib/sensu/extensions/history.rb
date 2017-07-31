@@ -43,7 +43,7 @@ module Sensu
         metric = event_data[:check][:name]
         timestamp = event_data[:check][:executed]
         value = event_data[:check][:status]
-        output = "#{@influx_conf['scheme']}.checks.#{metric},host=#{host} value=#{value} #{timestamp}"
+        output = "#{@influx_conf['scheme']}.checks.#{metric},type=history,host=#{host} value=#{value} #{timestamp}"
 
         @relay.push(@influx_conf['database'], @influx_conf['time_precision'], output)
         yield output, 0

@@ -45,6 +45,9 @@ module Sensu
         data[:client] = event[:client][:name]
         # This will merge : default conf tags < check embedded tags < sensu client/host tag
         data[:tags] = @influx_conf['tags'].merge(event[:check][:influxdb][:tags]).merge('host' => data[:client])
+        client_tags = event[:client][:tags] || {}
+        check_tags = event[:check][:tags] || {}
+        data[:tags].merge!(client_tags.merge(check_tags))
         # This will merge : check embedded templaes < default conf templates (check embedded templates will take precedence)
         data[:templates] = event[:check][:influxdb][:templates].merge(@influx_conf['templates'])
         data[:filters] = event[:check][:influxdb][:filters].merge(@influx_conf['filters'])
@@ -95,9 +98,11 @@ module Sensu
         settings['tags'] ||= {}
         settings['templates'] ||= {}
         settings['filters'] ||= {}
+        settings['strip_metric'] ||= nil
         settings['use_ssl'] ||= false
         settings['use_basic_auth'] ||= false
         settings['proxy_mode'] ||= false
+        settings['debug_relay'] ||= false
         settings['time_precision'] ||= 's'
         settings['protocol'] = settings['use_ssl'] ? 'https' : 'http'
         settings['buffer_max_size'] ||= 500
@@ -110,6 +115,7 @@ module Sensu
       end
 
       def strip_key(key, strip_metric, hostname)
+        return key if strip_metric.to_s.empty?
         if strip_metric == 'host'
           slice_host(key, hostname)
         elsif strip_metric
@@ -151,11 +157,12 @@ module Sensu
         end
 
         # Strip metric name
-        key = strip_key(key, event[:strip_metric], event[:client])
+        key = strip_key(key, event[:strip_metric], event[:client]) unless event[:strip_metric].nil?
 
         # Sanitize key name
         key = sanitize(key)
 
+        tags = {}.merge(event[:tags])
         event[:templates].each do |pattern, template|
           next unless key =~ /#{pattern}/
           template = template.split('.')
@@ -176,15 +183,16 @@ module Sensu
 
           template.each_with_index do |tag, i|
             unless i >= key_tags.length || tag =~ /field/ || tag =~ /measurement/ || tag == 'void' || tag == 'null' || tag == 'nil'
-              key += ",#{sanitize(tag)}=#{key_tags[i]}"
+              tags.merge!(sanitize(tag) => key_tags[i])
             end
           end
           break
         end
 
         # Append tags to measurement
-        event[:tags].each do |tag, val|
-          key += ",#{tag}=#{val}"
+        tags.each do |tag, val|
+          next if val.to_s.empty? # skips tags without values
+          key += ",#{sanitize(tag.to_s)}=#{sanitize(val.to_s)}"
         end
 
         values = "#{field_name}=#{value.to_f}"

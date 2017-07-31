@@ -22,15 +22,15 @@ module Sensu
             influxdb = EventMachine::HttpRequest.new("#{@influx_conf['base_url']}/write")
             post_data = {}
             post_data[:query] = { 'db' => db, 'precision' => p, 'u' => @influx_conf['username'], 'p' => @influx_conf['password'] }
-            post_data[:body] = points.join("\n")
+            post_data[:body] = points.join(" \n")
             if @influx_conf['use_basic_auth']
               post_data[:head] = { 'authorization' => [@influx_conf['basic_user'], @influx_conf['basic_pass']] }
             end
             result = influxdb.post(post_data)
-            next if @influx_conf.key?(db) # this is to avoid the performance impact of checking the response everytime
+            next if @influx_conf.key?(db) && @influx_conf['debug_relay'] == false # this is to avoid the performance impact of checking the response everytime
             result.callback do
               if result.response =~ /.*error.*/
-                logger.error(result.response)
+                logger.error("InfluxDB response: #{result.response}")
                 if result.response =~ /.*database not found.*/
                   post_data = {}
                   post_data[:body] = ''
