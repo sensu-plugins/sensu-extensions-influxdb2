@@ -1,4 +1,4 @@
-__NOTE:__ runnig `sensu-install -e sensu-extensions-influxdb` will __NOT__ install this extension as that namespase was already taken. Before reporting any issues here make sure you are using this version of the extension. (_hint:_ check the version number on the logs)
+__NOTE:__ running `sensu-install -e sensu-extensions-influxdb` will __NOT__ install this extension, as a project of the same already exists on Rubygems.org. Before reporting any issues here, make sure you are using this version of the extension. (_hint:_ check the version number on the logs)
 
 # Requirements
 
