@@ -163,7 +163,15 @@ module Sensu
         key = sanitize(key)
 
         tags = {}.merge(event[:tags])
-        event[:templates].each do |pattern, template|
+        event[:templates].each do |k, v|
+          if k.is_a?(Hash) # Array of Hashes
+            k = k.to_a.flatten
+            pattern = k[0]
+            template = k[1]
+          else # Hash of Hashes
+            pattern = k
+            template = v
+          end
           next unless key =~ /#{pattern}/
           template = template.split('.')
           key = key.split('.')
