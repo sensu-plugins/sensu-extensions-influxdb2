@@ -108,10 +108,10 @@ Check definitions can now specify a Sensu check extension to run,
       "region": "my-dc-01",
       "stage": "prod"
     },
-    "templates": {
-      "^sensu\\.checks\\..*":"source.measurement.field*",
-      ".*\\.cgroup\\..*": "host.path.component"
-    }
+    "templates": [
+      {"^sensu\\.checks\\..*":"source.measurement.field*"},
+      {".*\\.cgroup\\..*": "host.path.component"}
+    ]
   }
 }
 ```
