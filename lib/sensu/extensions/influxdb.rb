@@ -49,7 +49,7 @@ module Sensu
         check_tags = event[:check][:tags] || {}
         data[:tags].merge!(client_tags.merge(check_tags))
         # This will merge : check embedded templaes < default conf templates (check embedded templates will take precedence)
-        data[:templates] = event[:check][:influxdb][:templates].merge(@influx_conf['templates'])
+        data[:templates] = merge(event[:check][:influxdb][:templates], @influx_conf['templates'])
         data[:filters] = event[:check][:influxdb][:filters].merge(@influx_conf['filters'])
         event[:check][:influxdb][:database] ||= @influx_conf['database']
         event[:check][:time_precision] ||= @influx_conf['time_precision']
@@ -89,6 +89,32 @@ module Sensu
         return event
       rescue => e
         logger.error("Failed to parse event data: #{e}")
+      end
+
+      def merge(a, b)
+        combo = [a.class.to_s, b.class.to_s]
+        case combo
+        when %w(Hash Hash)
+          return a.merge(b)
+        when %w(Hash Array)
+          x = a.dup
+          b.each do |e|
+            return nil unless e.is_a?(Hash)
+            x.merge!(e)
+          end
+          return x
+        when %w(Array Array)
+          x = []
+          x.concat(a)
+          return x.concat(b)
+        when %w(Array Hash)
+          x = a.dup
+          b.each do |k, v|
+            x << { k => v }
+          end
+          return x
+        end
+        nil
       end
 
       def parse_settings
@@ -164,13 +190,12 @@ module Sensu
 
         tags = {}.merge(event[:tags])
         event[:templates].each do |k, v|
+          pattern = k
+          template = v
           if k.is_a?(Hash) # Array of Hashes
             k = k.to_a.flatten
             pattern = k[0]
             template = k[1]
-          else # Hash of Hashes
-            pattern = k
-            template = v
           end
           next unless key =~ /#{pattern}/
           template = template.split('.')
