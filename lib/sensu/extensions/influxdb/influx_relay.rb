@@ -9,7 +9,7 @@ module Sensu
         @influx_conf = config
         @buffer = {}
         @flush_timer = EventMachine::PeriodicTimer.new(@influx_conf['buffer_max_age'].to_i) do
-          unless buffer_size == 0
+          unless buffer_size.zero?
             flush_buffer
           end
         end
