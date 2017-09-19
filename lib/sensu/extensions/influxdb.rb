@@ -49,7 +49,7 @@ module Sensu
         check_tags = event[:check][:tags] || {}
         data[:tags].merge!(client_tags.merge(check_tags))
         # This will merge : check embedded templaes < default conf templates (check embedded templates will take precedence)
-        data[:templates] = merge(event[:check][:influxdb][:templates], @influx_conf['templates'])
+        data[:templates] = event[:check][:influxdb][:templates] + @influx_conf['templates']
         data[:filters] = event[:check][:influxdb][:filters].merge(@influx_conf['filters'])
         event[:check][:influxdb][:database] ||= @influx_conf['database']
         event[:check][:time_precision] ||= @influx_conf['time_precision']
@@ -83,6 +83,7 @@ module Sensu
         event[:check][:influxdb] ||= {}
         event[:check][:influxdb][:tags] ||= {}
         event[:check][:influxdb][:templates] ||= {}
+        event[:check][:influxdb][:templates] = h2a(event[:check][:influxdb][:templates])
         event[:check][:influxdb][:filters] ||= {}
         event[:check][:influxdb][:database] ||= nil
         event[:check][:influxdb][:proxy_mode] ||= false
@@ -91,30 +92,13 @@ module Sensu
         logger.error("Failed to parse event data: #{e}")
       end
 
-      def merge(a, b)
-        combo = [a.class.to_s, b.class.to_s]
-        case combo
-        when %w(Hash Hash)
-          return a.merge(b)
-        when %w(Hash Array)
-          x = a.dup
-          b.each do |e|
-            return nil unless e.is_a?(Hash)
-            x.merge!(e)
-          end
-          return x
-        when %w(Array Array)
-          x = []
-          x.concat(a)
-          return x.concat(b)
-        when %w(Array Hash)
-          x = a.dup
-          b.each do |k, v|
-            x << { k => v }
-          end
-          return x
+      def h2a(h)
+        return h unless h.is_a?(Hash)
+        x = []
+        h.each do |k, v|
+          x << { k => v }
         end
-        nil
+        x
       end
 
       def parse_settings
@@ -123,6 +107,7 @@ module Sensu
         # default values
         settings['tags'] ||= {}
         settings['templates'] ||= {}
+        settings['templates'] = h2a(settings['templates'])
         settings['filters'] ||= {}
         settings['strip_metric'] ||= nil
         settings['use_ssl'] ||= false
