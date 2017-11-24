@@ -4,6 +4,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 This CHANGELOG follows the format listed at [Keep A Changelog](http://keepachangelog.com/)
 
 ## [Unreleased]
+- Enhaced history metrics: outputs all history metrics into a single measurement, adding subscribers and check name as tags
+
 ### Added
 - Proxy_mode
 - Basic auth authentication option.

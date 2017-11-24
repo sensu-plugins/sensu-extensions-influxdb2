@@ -43,7 +43,12 @@ module Sensu
         metric = event_data[:check][:name]
         timestamp = event_data[:check][:executed]
         value = event_data[:check][:status]
-        output = "#{@influx_conf['scheme']}.checks.#{metric},type=history,host=#{host} value=#{value} #{timestamp}"
+        subscribers = event_data[:check][:subscribers].join('_')
+        output = if @influx_conf['enhanced_history']
+                   "#{@influx_conf['scheme']}.checks,check_name=#{metric},type=history,host=#{host},subscribers=#{subscribers} value=#{value} #{timestamp}"
+                 else
+                   "#{@influx_conf['scheme']}.checks.#{metric},type=history,host=#{host} value=#{value} #{timestamp}"
+                 end
 
         @relay.push(@influx_conf['database'], @influx_conf['time_precision'], output)
         yield output, 0
@@ -72,6 +77,7 @@ module Sensu
         settings['port'] ||= 8086
         settings['scheme'] ||= 'sensu'
         settings['base_url'] = "#{settings['protocol']}://#{settings['host']}:#{settings['port']}"
+        settings['enhanced_history'] ||= false
         return settings
       rescue => e
         logger.error("Failed to parse History settings #{e}")
