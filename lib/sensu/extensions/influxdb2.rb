@@ -3,11 +3,13 @@ require 'em-http-request'
 require 'eventmachine'
 require 'multi_json'
 require 'sensu/extension'
-require 'sensu/extensions/influxdb/influx_relay'
+require 'sensu/extensions/influxdb2/influx_relay'
+
+require 'sensu/extensions/influxdb2/version'
 
 module Sensu
   module Extension
-    class InfluxDB < Handler
+    class InfluxDB2 < Handler
       def name
         definition[:name]
       end

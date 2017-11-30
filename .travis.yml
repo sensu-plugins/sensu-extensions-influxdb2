@@ -13,9 +13,20 @@ notifications:
   email:
     recipients:
     - steve.viola@criticalmedia.com
+    - sensu-plugin@sensu-plugins.io
     on_success: change
     on_failure: always
 script:
 - bundle exec rake default
-- gem build sensu-extensions-influxdb.gemspec
-- gem install sensu-extensions-influxdb-*.gem
+- gem build sensu-extensions-influxdb2.gemspec
+- gem install sensu-extensions-influxdb2-*.gem
+deploy:
+  provider: rubygems
+  api_key:
+    secure: VFMdhHrMiqg2JSP/Ly1v7Td2tUam6XdL1jHWtepzkioPFXkkwDY6b5YdtWVdqY+ZChMmAkB2FvaLRjLM6QCYabMUVSkvRBdlBxgAqM9O+sETS114krszUqsd3/fEeCUUMJhEIyptngGa7CNEdAgWK2L7yycs0HeiRXvXEJ6PYunNb6DfZWTA63EgOMUs8q9+CdMDAHllLs93DX1mFZ8Rpv/D2NGw75YqSwlTTVVmNSt6/d18tQ99QQORM3SUtsm+kQ1n1HubRqDtQa9ko3YgvxaBPZm0TZveVcjIk3zEc7DQQ9sxBgZnZ4dVFkv+ONUfxyZzTh4xJWf5z+qxJDtz4CRjpjCRGlLA9jY4YCFlaAteVIiExvplr59ECfUWA0yRZ7okYdYa/sa9oqcToskNqmFKi0CCoV7hQpnWc8tOtRcA0TkxLYx1swVZ7l/T2UP5Qwc1KoIaXkCYqBvr3GmyOFWL8ggSVFbnMBJhHhVJG/Nuf3WauraXBFJgZZectm3X7ZfAzRWxP2Tk0kqDgOLx68eKkfasF5cpyx2DncgynorSufZALNWuuV6lOf8ey61Tco2vvbCQPTEiYpgoJCbmQgVCkY6q0fereaDxc7H9EpKk/GOVeTX6T/u4TR1IxsFLi5XucZkFIJxH7AE1FI8Bd16NRDK5nk95SbVe3kCRtaQ=
+  gem: sensu-extensions-influxdb2
+  on:
+    tags: true
+    all_branches: true
+    rvm: 2.4.1
+    repo: sensu-extensions/sensu-plugins-influxdb2

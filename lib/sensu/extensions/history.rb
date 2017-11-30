@@ -3,7 +3,7 @@ require 'em-http-request'
 require 'eventmachine'
 require 'multi_json'
 require 'sensu/extension'
-require 'sensu/extensions/influxdb/influx_relay'
+require 'sensu/extensions/influxdb2/influx_relay'
 
 module Sensu
   module Extension
