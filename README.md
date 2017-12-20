@@ -199,6 +199,7 @@ Note that :
 * `buffer_max_size` : buffer size limit before flush - This is the amount of points in the InfluxDB batch - (default is `500`)
 * `buffer_max_age` : buffer maximum age - Flush will be forced after this amount of time - (default is `6` seconds)
 * `Proxy mode` : If the extension is configured to be in proxy mode, it will skip the transformation step and assume that the data is valid [line protocol](https://docs.influxdata.com/influxdb/latest/write_protocols/line_protocol_reference). It will not take into account any tags defined in the sensu-configuration.
+* `enhanced_history`: by default this extension writes checks history as separated measurements on InfluxDB. Setting this attribute to true will write all check history in the same metric (sensu.checks), tagging check name and subscriptions, allowing the user to write InfluxDB queries filtering by check name and subscriptions.
 
 ## Check options
 
