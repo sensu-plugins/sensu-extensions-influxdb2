@@ -58,12 +58,13 @@ module Sensu
         event[:check][:influxdb][:strip_metric] ||= @influx_conf['strip_metric']
         data[:strip_metric] = event[:check][:influxdb][:strip_metric]
         data[:duration] = event[:check][:duration]
+        data[:retention_policies] = event[:check][:influxdb][:retention_policies].merge(@influx_conf[:retention_policies])
         event[:check][:output].split(/\r\n|\n/).each do |line|
           unless @influx_conf['proxy_mode'] || event[:check][:influxdb][:proxy_mode]
             data[:line] = line
-            line = parse_line(data)
+            line_data = parse_line(data)
           end
-          @relay.push(event[:check][:influxdb][:database], event[:check][:time_precision], line)
+          @relay.push(event[:check][:influxdb][:database], event[:check][:time_precision], line_data[:retention_policy], line_data[:line])
         end
         yield 'ok', 0
       end
@@ -89,6 +90,7 @@ module Sensu
         event[:check][:influxdb][:filters] ||= {}
         event[:check][:influxdb][:database] ||= nil
         event[:check][:influxdb][:proxy_mode] ||= false
+        event[:check][:influxdb][:retention_policies] ||= {}
         return event
       rescue => e
         logger.error("Failed to parse event data: #{e}")
@@ -121,6 +123,7 @@ module Sensu
         settings['buffer_max_size'] ||= 500
         settings['buffer_max_age'] ||= 6 # seconds
         settings['port'] ||= 8086
+        settings['retention_policies'] ||= {}
         settings['base_url'] = "#{settings['protocol']}://#{settings['host']}:#{settings['port']}"
         return settings
       rescue => e
@@ -163,6 +166,15 @@ module Sensu
       def parse_line(event)
         field_name = 'value'
         key, value, time = event[:line].split(/\s+/)
+
+        # find retention policy
+        retention_policy = :default
+        event[:retention_policies].each do |pattern, rp|
+          if /#{pattern}/ =~ key
+            retention_policy = rp
+            break
+          end
+        end
 
         # Apply filters
         event[:filters].each do |pattern, replacement|
@@ -217,7 +229,10 @@ module Sensu
 
         values = "#{field_name}=#{value.to_f}"
         values += ",duration=#{event[:duration].to_f}" if event[:duration]
-        [key, values, time.to_i].join(' ')
+        {
+          line: [key, values, time.to_i].join(' '),
+          retention_policy: retention_policy
+        }
       end
 
       def logger
