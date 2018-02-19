@@ -1,4 +1,4 @@
-__NOTE:__ running `sensu-install -e sensu-extensions-influxdb` will __NOT__ install this extension, as a project with the same name already exists on Rubygems.org. Before reporting any issues here, make sure you are using this version of the extension. (_hint:_ check the version number on the logs)
+__NOTE:__ running `sensu-install -e sensu-extensions-influxdb` will __NOT__ install this extension, as a project with the same name already exists on Rubygems.org. Before reporting any issues here, make sure you are using this version of the extension. (_hint:_ check the version number on the logs) In order to install this extension, run `sensu-install -e sensu-extensions-influxdb2`.
 
 # Requirements
 
@@ -59,10 +59,10 @@ To [load the extension](https://sensuapp.org/docs/latest/reference/extensions.ht
 {
   "extensions": {
     "influxdb": {
-      "gem": "sensu-extensions-influxdb",
+      "gem": "sensu-extensions-influxdb2"
     },
     "history": {
-      "gem": "sensu-extensions-history",
+      "gem": "sensu-extensions-history"
     }
   }
 }
@@ -78,8 +78,10 @@ _/etc/sensu/conf.d/handlers/metrics.json_ :
   "handlers": {
     "metrics": {
       "type": "set",
-      "handlers": [ "debug", "influxdb"]
-      }
+      "handlers": [
+        "debug",
+        "influxdb"
+      ]
     }
   }
 }
@@ -109,7 +111,7 @@ Check definitions can now specify a Sensu check extension to run,
       "stage": "prod"
     },
     "templates": [
-      {"^sensu\\.checks\\..*":"source.measurement.field*"},
+      {"^sensu\\.checks\\..*": "source.measurement.field*"},
       {".*\\.cgroup\\..*": "host.path.component"}
     ]
   }
@@ -132,7 +134,7 @@ For example, if you have a metric named:
 ```
 You can set a template like:
 ```json
-  "templates":{
+  "templates": {
     ".*\\.host_stats\\..*": "host.type"
   }
 ```
@@ -149,7 +151,7 @@ Example, considereing the following metrics:
 ```
 You could create a template like this:
 ```json
-  "templates":{
+  "templates": {
     ".*\\.host_stats\\..*": "host.measurement.field*"
   }
 ```
@@ -161,7 +163,7 @@ And you would get:
 ```
 Or, a template like this:
 ```json
-  "templates":{
+  "templates": {
     ".*\\.host_stats\\..*": "host.measurement.field.aggregation"
   }
 ```
