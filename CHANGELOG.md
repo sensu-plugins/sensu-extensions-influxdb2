@@ -1,10 +1,9 @@
 #Change Log
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-This CHANGELOG follows the format listed at [Keep A Changelog](http://keepachangelog.com/)
+This CHANGELOG follows the format located [here](https://github.com/sensu-plugins/community/blob/master/HOW_WE_CHANGELOG.md)
 
 ## [Unreleased]
-- Enhaced history metrics: outputs all history metrics into a single measurement, adding subscribers and check name as tags
 
 ### Added
 - Proxy_mode
@@ -12,9 +11,13 @@ This CHANGELOG follows the format listed at [Keep A Changelog](http://keepachang
 - Filters
 - Measurement templating mechanism
 - Append check and client tags to metrics
+- Enhaced history metrics: outputs all history metrics into a single measurement, adding subscribers and check name as tags (@alcasim)
 
 ### Fixed
 - strip_key was not working
+
+### Changed
+- updated changelog guidelines location (@majormoses)
 
 ## 0.0.2 - 2017-05-18
 ### Added
