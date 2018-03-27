@@ -4,7 +4,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 This CHANGELOG follows the format located [here](https://github.com/sensu-plugins/community/blob/master/HOW_WE_CHANGELOG.md)
 
 ## [Unreleased]
+### Changed
+- Don't try to add a subscription tag if no such field in check result (@bergerx)
 
+## 0.1.0 - 2018-03-26
 ### Added
 - Proxy_mode
 - Basic auth authentication option.
