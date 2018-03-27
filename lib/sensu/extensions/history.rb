@@ -43,9 +43,13 @@ module Sensu
         metric = event_data[:check][:name]
         timestamp = event_data[:check][:executed]
         value = event_data[:check][:status]
-        subscribers = event_data[:check][:subscribers].join('_')
+        subscribers_tag = if event_data[:check][:subscribers].nil?
+                            ''
+                          else
+                            ",subscribers=#{event_data[:check][:subscribers].join('_')}"
+                          end
         output = if @influx_conf['enhanced_history']
-                   "#{@influx_conf['scheme']}.checks,check_name=#{metric},type=history,host=#{host},subscribers=#{subscribers} value=#{value} #{timestamp}"
+                   "#{@influx_conf['scheme']}.checks,check_name=#{metric},type=history,host=#{host}#{subscribers_tag} value=#{value} #{timestamp}"
                  else
                    "#{@influx_conf['scheme']}.checks.#{metric},type=history,host=#{host} value=#{value} #{timestamp}"
                  end
