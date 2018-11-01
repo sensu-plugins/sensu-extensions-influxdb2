@@ -36,6 +36,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'rubocop', '~> 0.40.0'
   spec.add_development_dependency 'sensu-logger'
   spec.add_development_dependency 'sensu-settings'
-  spec.add_development_dependency 'github-markup', '~> 1.3'
+  spec.add_development_dependency 'github-markup', '~> 3.0'
   spec.add_development_dependency 'yard', '~> 0.8'
 end
