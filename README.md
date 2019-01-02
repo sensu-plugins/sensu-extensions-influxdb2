@@ -113,7 +113,10 @@ Check definitions can now specify a Sensu check extension to run,
     "templates": [
       {"^sensu\\.checks\\..*": "source.measurement.field*"},
       {".*\\.cgroup\\..*": "host.path.component"}
-    ]
+    ],
+    "retention_policies": {
+      ".*\\.metric1\\..*": "metric1_retention_policy"
+    }
   }
 }
 ```
@@ -125,6 +128,11 @@ Check definitions can now specify a Sensu check extension to run,
 * `use_basic_auth` if your InfluxDB is behind a proxy that requires authentication you can set this to `true`, in that case you also have to define `basic_user` and `basic_pass`.
 
 * `filters` allow's you to "find and replace" words/patterns in the key, it's a Hash where the key is a regex pattern and the value is a string that should replace it. (these are passed directly to the gsub method). Filters are applyed before any other transformations like templates.
+
+* `retention_policies` allows for sending metrics with custom retention policies. Metrics matching `key` (with `=~`) are
+  sent with retention policy `value`. The first match is the one applied (event configuration takes precedence over
+  handler configuration). If no `key` matches the metric, the data is sent without a specified retention policy and
+  takes the default for the database.
 
 * `templates` like with the InfluxDB Graphite plugin, you can specify patterns and formats, if the metric name matches the pattern, the template will be applied. Templates can be defined per check, in the check configuration, or globaly in the handler's configuration. Parts of the metric name will be converted into tags, reducing the measurement name in InfluxDB whilst keeping all the information as tags or fields.
 You can specifty multiple templates, if your metric matches more than one the first one will be used.
