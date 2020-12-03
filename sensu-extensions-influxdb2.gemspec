@@ -33,7 +33,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'rake'
   spec.add_development_dependency 'rspec'
   spec.add_development_dependency 'redcarpet', '~> 3.2'
-  spec.add_development_dependency 'rubocop', '~> 0.40.0'
+  spec.add_development_dependency 'rubocop', '~> 1.5.1'
   spec.add_development_dependency 'sensu-logger'
   spec.add_development_dependency 'sensu-settings'
   spec.add_development_dependency 'github-markup', '~> 3.0'
